@@ -1,5 +1,5 @@
 {
-  "name": "lambda-invoker",
+  "name": "4front-lambda-invoker",
   "version": "1.0.0",
   "description": "Express middleware that invokes an AWS Lambda function",
   "main": "index.js",
