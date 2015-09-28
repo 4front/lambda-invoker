@@ -6,6 +6,7 @@ var express = require('express');
 var invoker = require('../lib/invoker');
 var eventEmitter = require('event-emitter');
 var sbuff = require('simple-bufferstream');
+var querystring = require('querystring');
 
 require('dash-assert');
 require('simple-errors');
@@ -27,7 +28,9 @@ describe("lambdaInvoker", function() {
       next();
     });
 
-    app.use('/lambda', function(req, res, next) {
+    app.use(require('cookie-parser')());
+
+    app.use('/lambda/:name', function(req, res, next) {
       invoker(pluginOptions)(req, res, next);
     });
 
@@ -55,6 +58,10 @@ describe("lambdaInvoker", function() {
     });
   });
 
+  afterEach(function() {
+    sinon.restore(AWS, 'Lambda');
+  });
+
   it("invokes lambda with success response", function(done) {
     jsonResponse = {
       name: 'bob',
@@ -63,7 +70,7 @@ describe("lambdaInvoker", function() {
 
     pluginOptions.functionName = 'getUser';
 
-    supertest(app).get('/lambda')
+    supertest(app).get('/lambda/get-user')
       .expect(200)
       .expect(function(res) {
         assert.isTrue(lambdaStub.invoke.calledWith(sinon.match({
@@ -77,8 +84,35 @@ describe("lambdaInvoker", function() {
       .end(done);
   });
 
-  afterEach(function() {
-    sinon.restore(AWS, 'Lambda');
+  it('passes through http req properties', function(done) {
+    var requestBody = {
+      foo: 'one',
+      list: ['a', 'b']
+    };
+
+    var query = {
+      param1: '1'
+    };
+
+    var cookies = {cookie1: 'one', cookie2: 'two'};
+
+    pluginOptions.functionName = 'createUser';
+    supertest(app).post('/lambda/create-user?' + querystring.stringify(query))
+      .send(requestBody)
+      .set('Cookie', 'cookie1=one;cookie2=two')
+      .expect(200)
+      .expect(function(res) {
+        var lambdaArgs = lambdaStub.invoke.getCall(0).args[0];
+        var eventPayload = JSON.parse(lambdaArgs.Payload);
+
+        assert.deepEqual(eventPayload.body, requestBody);
+        assert.deepEqual(eventPayload.query, query);
+        assert.deepEqual(eventPayload.params, {name: 'create-user'});
+        assert.deepEqual(eventPayload.cookies, cookies);
+        assert.equal(eventPayload.path, '/');
+        assert.equal(eventPayload.method, 'POST');
+      })
+      .end(done);
   });
 
   it('lambda function returns an error', function(done) {
@@ -91,7 +125,7 @@ describe("lambdaInvoker", function() {
 
     lambdaHeaders['x-amz-function-error'] = errorHeader;
 
-    supertest(app).get('/lambda')
+    supertest(app).get('/lambda/get-user')
       .expect(500)
       .expect(function(res) {
         assert.isMatch(res.body, {
