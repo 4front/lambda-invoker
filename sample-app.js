@@ -8,5 +8,5 @@ app.get('/lambda', require('./lib/invoker')({
 }));
 
 app.listen(9000, function() {
-  console.log("listening");
+  console.log('listening');
 });
