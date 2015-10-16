@@ -121,7 +121,8 @@ describe('lambdaInvoker', function() {
     var cookies = {cookie1: 'one', cookie2: 'two'};
 
     pluginOptions.functionName = 'createUser';
-    supertest(app).post('/lambda/create-user?' + querystring.stringify(query))
+    var url = '/lambda/create-user?' + querystring.stringify(query);
+    supertest(app).post(url)
       .send(requestBody)
       .set('Cookie', 'cookie1=one;cookie2=two')
       .expect(200)
@@ -133,6 +134,8 @@ describe('lambdaInvoker', function() {
         assert.deepEqual(eventPayload.query, query);
         assert.deepEqual(eventPayload.params, {name: 'create-user'});
         assert.deepEqual(eventPayload.cookies, cookies);
+        assert.equal(eventPayload.originalUrl, url);
+        assert.equal(eventPayload.url, 'http://127.0.0.1' + url);
         assert.equal(eventPayload.path, '/');
         assert.equal(eventPayload.method, 'POST');
       })
